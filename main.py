@@ -165,4 +165,4 @@ async def on_command_error(ctx, error):
 
 
 bot.run(
-    "DISCORD_BOT_TOKEN")
+    "os.getenv("DISCORD_BOT_TOKEN")")
