@@ -165,4 +165,4 @@ async def on_command_error(ctx, error):
 
 
 bot.run(
-    "MTM5NDYzNTc0NTMwMTM2NDgzNg.GspKtu.9Td8yIaTXnfd5omV6yfUQSqGdzUjxQn19OL7PE")
+    "token")
