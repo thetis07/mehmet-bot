@@ -5,27 +5,46 @@ import os
 import sys
 import json
 import subprocess
+import asyncio
+import discord.ui
 from discord.ext import commands
 from discord.ext.commands import CommandOnCooldown
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True # Sunucu üyelerini çekebilmek için intents'i aktif ettim
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-if os.path.exists("cooldowns.json"):
-    with open("cooldowns.json", "r") as f:
-        try:
-            cooldowns = json.load(f)
-        except json.JSONDecodeError:
-            cooldowns = {}
+# Cooldown ve data için JSON dosyalarını yükleme/kaydetme fonksiyonları
+def load_json(filename):
+    if os.path.exists(filename):
+        with open(filename, "r") as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return {}
+    return {}
+
+def save_json(filename, data):
+    with open(filename, "w") as f:
+        json.dump(data, f, indent=4)
+
+if os.path.exists("starboard.json"):
+    with open("starboard.json", "r") as f:
+        starboard_messages = json.load(f)
 else:
-    cooldowns = {}
+    starboard_messages = {}
+
+cooldowns = load_json("cooldowns.json")
+dicks = load_json("dicks.json")
+lottery_data = load_json("lottery.json")
 
 
 @bot.event
 async def on_ready():
     print(f"Bot {bot.user} olarak giriş yaptı.")
+    print("-----")
 
 @bot.event
 async def on_message(message):
@@ -60,6 +79,67 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
+STAR_THRESHOLD = 3
+STARBOARD_CHANNEL_ID = 1402040749750489198
+starboard_messages = {}
+
+@bot.event
+async def on_raw_reaction_add(payload):
+    if payload.emoji.name != "⭐":
+        return
+
+    guild = bot.get_guild(payload.guild_id)
+    channel = guild.get_channel(payload.channel_id)
+    message = await channel.fetch_message(payload.message_id)
+
+    if message.author.bot:
+        return
+
+    for reaction in message.reactions:
+        if reaction.emoji == "⭐":
+            if reaction.count >= STAR_THRESHOLD:
+                starboard_channel = guild.get_channel(STARBOARD_CHANNEL_ID)
+
+                embed = discord.Embed(
+                    description=message.content or "*[bos msj]*",
+                    color=discord.Color.gold(),
+                    timestamp=message.created_at
+                )
+                embed.set_author(
+                    name=message.author.name,
+                    icon_url=message.author.display_avatar.url
+                )
+                embed.add_field(
+                    name="Bağlantı",
+                    value=f"[gtmek icn dıkla]({message.jump_url})",
+                    inline=False
+                )
+                embed.set_footer(text=f"{reaction.count} ⭐")
+
+                # Medya varsa ekle (resim ya da video bağlantısı olarak)
+                if message.attachments:
+                    for attachment in message.attachments:
+                        if attachment.content_type.startswith("image"):
+                            embed.set_image(url=attachment.url)
+                            break
+                        elif attachment.content_type.startswith("video"):
+                            embed.add_field(name="Video", value=attachment.url, inline=False)
+                            break
+
+                # Daha önce eklenmiş mi kontrol et
+                if message.id in starboard_messages:
+                    try:
+                        old_msg = await starboard_channel.fetch_message(starboard_messages[message.id])
+                        await old_msg.edit(embed=embed)
+                    except discord.NotFound:
+                        sent = await starboard_channel.send(embed=embed)
+                        starboard_messages[message.id] = sent.id
+                else:
+                    sent = await starboard_channel.send(embed=embed)
+                    starboard_messages[message.id] = sent.id
+            break
+
+
 @bot.command()
 @commands.is_owner()
 async def reload(ctx):
@@ -69,9 +149,10 @@ async def reload(ctx):
 
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def purge(ctx, miktar):
-    sil = await ctx.channel.purge(limit=int(miktar))
+async def purge(ctx, miktar: int):
+    await ctx.channel.purge(limit=miktar)
 
+# ... Diğer komutların hepsi aynı kalabilir ...
 @bot.command(aliases=["sole"])
 async def say(ctx, *, contentx):
     await ctx.message.delete()
@@ -83,37 +164,31 @@ async def gugul(ctx, *, aratilcak_sey):
 
 @bot.command(aliases=["dakdakgo"])
 async def ddg(ctx, *, aratilcak_sey):
-    await ctx.send(f"[{aratilcak_sey}]"+f"(https://lmddgtfy.net/?q={aratilcak_sey.replace(" ", "%20")})")
+    await ctx.send(f"[{aratilcak_sey}]"+f"(https://lmddgtfy.net/?q={aratilcak_sey.replace(' ', '%20')})")
 
 @bot.command()
 async def yazitura(ctx, cevap: str):
-    liste = ["yazı", "tura"]
-    secilen = random.choice(liste)
-
-    if cevap == secilen:
-        await ctx.send(f"the cevap was {secilen}, kazandın helal lan türk")
-
+    secilen = random.choice(["yazı", "tura"])
+    if cevap.lower() == secilen:
+        await ctx.send(f"Cevap **{secilen}** idi, kazandın helal lan türk")
     else:
-        await ctx.send(f"the cevap was {secilen}, mal kürt kazanamadın")
+        await ctx.send(f"Cevap **{secilen}** idi, mal kürt kazanamadın")
 
 @bot.command()
 async def secim(ctx, option1, option2):
-    options = [option1, option2]
-    secilen = random.choice(options)
-    await ctx.send(f"cıkan secim : {secilen}")
+    await ctx.send(f"Çıkan seçim: {random.choice([option1, option2])}")
 
 @bot.command(aliases=["beyz","base"])
 async def base64(ctx, option, *, mesaj):
-    if option == "encode" or option == "e":
+    if option in ["encode", "e"]:
         result = subprocess.getoutput(f"echo '{mesaj}' | base64")
-        await ctx.send(f"{mesaj} --> {result}")
-
-    elif option == "decode" or option == "d":
+        await ctx.send(f"`{mesaj}` --> `{result}`")
+    elif option in ["decode", "d"]:
         result = subprocess.getoutput(f"echo '{mesaj}' | base64 -d")
-        await ctx.send(f"{mesaj} --> {result}")
-
+        await ctx.send(f"`{mesaj}` --> `{result}`")
     else:
-        await ctx.send("duzgun secnek gir yarraaaam")
+        await ctx.send("Düzgün seçenek gir yarraaaam (`encode` veya `decode`)")
+# ...
 
 @bot.command()
 async def meme(ctx):
@@ -145,11 +220,37 @@ async def ping(ctx):
     await ctx.send(f"pinpon oc {latency}ms")
 
 
+async def draw_lottery(ctx):
+    """Loto çekilişini yapan ve kazananı anons eden fonksiyon."""
+    global lottery_data, dicks
+    participants = lottery_data.get("participants", {})
+    if not participants:
+        return
+
+    winner_id = random.choice(list(participants.keys()))
+    total_pot = sum(participants.values())
+
+    try:
+        winner_user = await bot.fetch_user(int(winner_id))
+        mention = winner_user.mention
+    except discord.NotFound:
+        mention = f"Bilinmeyen Kullanıcı ({winner_id})"
+
+    dicks[winner_id] = dicks.get(winner_id, 0) + total_pot
+    save_json("dicks.json", dicks)
+
+    await ctx.send(f"🎉 **allah yoksunu lodıri sona erdi** 🎉\n6 saat gecti aminyum ve kazanan: {mention}! helal olsun valla, lodirideki **{total_pot} cm**'i kazandın hll")
+
+    lottery_data = {}
+    save_json("lottery.json", lottery_data)
+
 @bot.command(aliases=["pipi", "Pipi", "PİPİ", "Sik", "SİK", "cuk", "Cuk", "CUK"])
-async def sik(ctx, option: str = None):
+async def sik(ctx, *args):
+    import os, json, random, time
+    global dicks, cooldowns, lottery_data
+
     user_id = str(ctx.author.id)
 
-    # Dosyadan veriyi oku, yoksa boş dict yap
     if os.path.exists("dicks.json"):
         with open("dicks.json", "r") as f:
             try:
@@ -159,52 +260,215 @@ async def sik(ctx, option: str = None):
     else:
         data = {}
 
-    # Eğer option parametresi yoksa uyar
-    if option is None:
+    if not args:
         await ctx.send("https://tenor.com/view/rock-one-eyebrow-raised-rock-staring-the-rock-gif-22113367")
         return
 
-    # cooldown sadece 'buyut' seçeneğinde geçerli
-    if option == "buyult" or option == "kaldir" or option == "kaldır":
+    option = args[0].lower()
+    amount = args[1] if len(args) > 1 else None
+
+    # LOTO zaman kontrolü
+    if "end_time" in lottery_data and time.time() > lottery_data["end_time"]:
+        print("[DEBUG] Loto süresi doldu, çekiliş yapılıyor.")
+        await draw_lottery(ctx)
+        return
+
+    # GIVE KOMUTU
+    if option == "give":
+        if not ctx.message.mentions or amount is None:
+            await ctx.send("kime ne kadar vercen amk düzgün yaz: `!sik give <miktar> @kullanıcı`")
+            return
+
+        try:
+            miktar = int(amount)
+            if miktar <= 0:
+                await ctx.send("0 veya negatif veremezsin be kürd")
+                return
+        except ValueError:
+            await ctx.send("sayı giricen kanka `!sik give <miktar> @kullanıcı` örnek.")
+            return
+
+        hedef_kisi = ctx.message.mentions[0]
+        hedef_id = str(hedef_kisi.id)
+        veren_id = user_id
+
+        veren_cm = data.get(veren_id, 0)
+        if veren_cm < miktar:
+            await ctx.send(f"{ctx.author.mention}, o kadar sikin yok mk! sende sadece {veren_cm} cm var.")
+            return
+
+        data[veren_id] = veren_cm - miktar
+        data[hedef_id] = data.get(hedef_id, 0) + miktar
+
+        with open("dicks.json", "w") as f:
+            json.dump(data, f, indent=4)
+
+        await ctx.send(f"{ctx.author.mention}, {hedef_kisi.mention} kişisine **{miktar} cm** verdi. hll lan sana mal kopek")
+        return
+
+    if option == "fight":
+        if not ctx.message.mentions or amount is None:
+            await ctx.send("kime meydan okuduğunu ve ne kadar cm bahis koyduğunu yaz: `!sik fight @kullanici <miktar>`")
+            return
+
+        try:
+            miktar = int(amount)
+            if miktar <= 0:
+                await ctx.send("bahis negatif olamaz aq")
+                return
+        except ValueError:
+            await ctx.send("bahis miktarına sayı gir gral")
+            return
+
+        hedef = ctx.message.mentions[0]
+        hedef_id = str(hedef.id)
+        user_id = str(ctx.author.id)
+
+        if user_id == hedef_id:
+            await ctx.send("kendi sikinle savaşamazsın koçum")
+            return
+
+        user_cm = dicks.get(user_id, 0)
+        hedef_cm = dicks.get(hedef_id, 0)
+
+        if user_cm < miktar or hedef_cm < miktar:
+            await ctx.send(f"her iki tarafın da en az {miktar} cm sik olması lazım. {ctx.author.mention}: {user_cm} cm, {hedef.mention}: {hedef_cm} cm")
+            return
+
+        class FightButtons(discord.ui.View):
+            def __init__(self, timeout=60):
+                super().__init__(timeout=timeout)
+                self.response = None
+
+            @discord.ui.button(label="Kabul Et", style=discord.ButtonStyle.green)
+            async def kabul(self, interaction: discord.Interaction, button: discord.ui.Button):
+                if interaction.user.id != hedef.id:
+                    await interaction.response.send_message("Sen karışma amk", ephemeral=True)
+                    return
+                self.response = "kabul"
+                await interaction.response.edit_message(content=f"{hedef.mention} dövüşü kabul etti! Savaş başlıyor...", view=None)
+                self.stop()
+
+            @discord.ui.button(label="Reddet", style=discord.ButtonStyle.red)
+            async def reddet(self, interaction: discord.Interaction, button: discord.ui.Button):
+                if interaction.user.id != hedef.id:
+                    await interaction.response.send_message("Sen karışma amk", ephemeral=True)
+                    return
+                self.response = "reddet"
+                await interaction.response.edit_message(content=f"{hedef.mention} dövüşü reddetti. korkak", view=None)
+                self.stop()
+
+        view = FightButtons()
+        await ctx.send(f"🥊 {ctx.author.mention}, {hedef.mention} kişisine **{miktar} cm** bahisle dövüş teklif etti.",
+                       view=view)
+        await view.wait()
+
+        if view.response != "kabul":
+            return  # Dövüş iptal edildi
+
+        # %50-%50 adil savaş
+        kazanan_id = random.choice([user_id, hedef_id])
+        kaybeden_id = hedef_id if kazanan_id == user_id else user_id
+
+        kazanan_user = ctx.author if kazanan_id == user_id else hedef
+        kaybeden_user = hedef if kazanan_id == user_id else ctx.author
+
+        dicks[kazanan_id] = dicks.get(kazanan_id, 0) + miktar
+        dicks[kaybeden_id] = max(0, dicks.get(kaybeden_id, 0) - miktar)
+
+        save_json("dicks.json", dicks)
+
+        await ctx.send(f"💥 **SİK DÖVÜŞÜ!** 💥\n"
+                       f"{ctx.author.mention} vs {hedef.mention} – bahis: **{miktar} cm**\n\n"
+                       f"🏆 **Kazanan:** {kazanan_user.mention} (+{miktar} cm)\n"
+                       f"💀 **Kaybeden:** {kaybeden_user.mention} (-{miktar} cm)")
+        return
+
+
+    # LOTTERY
+    if option in ["lottery", "lodıri"]:
+        participants = lottery_data.get("participants", {})
+
+        if amount is not None:
+            try:
+                amount_int = int(amount)
+                if amount_int <= 0:
+                    await ctx.send("mal kürd en az 20cm ile katılabiliyon")
+                    return
+            except ValueError:
+                await ctx.send("sayı gir amk cahili sana integer ile stringi ayrıstırmayı ogretmedilermi")
+                return
+
+            if user_id in participants:
+                await ctx.send("zaten katıldın beklicen")
+                return
+
+            user_cm = dicks.get(user_id, 0)
+            if amount_int < 20:
+                await ctx.send(f"{ctx.author.mention}, katılmak icin 20cm girmne lazım en az allahın malı. sende sadece {user_cm}cm var.")
+                return
+
+            if user_cm < amount_int:
+                await ctx.send(f"{ctx.author.mention}, o kadar cmin yok puhaha allan arabı sende sadece {user_cm}cm var")
+                return
+
+            if not participants:
+                lottery_data["end_time"] = time.time() + (6 * 60 * 60)
+                lottery_data["participants"] = {}
+                await ctx.send("🎉 **lodıri basladı genclerr** 6 saatte bidcek")
+
+            dicks[user_id] -= amount_int
+            lottery_data["participants"][user_id] = lottery_data["participants"].get(user_id, 0) + amount_int
+            save_json("dicks.json", dicks)
+            save_json("lottery.json", lottery_data)
+
+            time_left = lottery_data["end_time"] - time.time()
+            hours, rem = divmod(time_left, 3600)
+            minutes, _ = divmod(rem, 60)
+            await ctx.send(f"{ctx.author.mention}, **{amount_int} cm** ile lodıriye gatıldın, gud lak amınogli! 🍀\n bitmesine **{int(hours)} saat {int(minutes)} dakika** var.")
+        else:
+            if not participants:
+                await ctx.send("**lodıri!!11!**\n> suan lodırı yok\n> `!sik lottery <miktar>` yaz baslat gral.")
+                return
+
+            total_pot = sum(participants.values())
+            time_left = lottery_data["end_time"] - time.time()
+            hours, rem = divmod(time_left, 3600)
+            minutes, _ = divmod(rem, 60)
+            await ctx.send(f"**lodıri!!11!**\n> lodiride **{len(participants)}** kişi var.\n> doplam ödül: **{total_pot} cm** 💰\n> bitmesine: **~{int(hours)} saat {int(minutes)} dakika**.")
+        return
+
+    if option in ["buyult", "kaldir", "kaldır"]:
         now = time.time()
-        cooldown_time = 7200  # 2 saat = 7200 saniye
+        cooldown_time = 7200
         last_time = cooldowns.get(user_id, 0)
 
         if now - last_time < cooldown_time:
             kalan = int(cooldown_time - (now - last_time))
-            saat = int(kalan/3600)
-            dakika = int((kalan%3600) / 60)
+            saat = int(kalan / 3600)
+            dakika = int((kalan % 3600) / 60)
             user = ctx.author.mention
-            
+
             if saat >= 1:
                 await ctx.send(f"{user}, sikini {saat} saat {dakika} dakika sonra buyultebilcen gral.")
-                return
-
-            if saat == 0:
+            else:
                 await ctx.send(f"{user}, sikini {dakika} dakika sonra buyultebilcen gral.")
-                return
+            return
 
-        else:
-            cooldowns[user_id] = now
-            with open("cooldowns.json", "w") as f:
-                json.dump(cooldowns, f, indent=4)
+        cooldowns[user_id] = now
+        with open("cooldowns.json", "w") as f:
+            json.dump(cooldowns, f, indent=4)
 
-
-        buyume_rakamlari = list(range(1, 13))
-        secilen_buyume = random.choice(buyume_rakamlari)
-        boy = data.get(user_id, 0)
-        boy += secilen_buyume
+        secilen_buyume = random.randint(1, 12)
+        boy = data.get(user_id, 0) + secilen_buyume
         data[user_id] = boy
 
         with open("dicks.json", "w") as f:
             json.dump(data, f, indent=4)
 
-        await ctx.send(
-            f"{ctx.author.mention}, sikinin boyu {secilen_buyume} cm arttı! toplam boyun: {boy} cm 🍆"
-        )
+        await ctx.send(f"{ctx.author.mention}, sikinin boyu {secilen_buyume} cm arttı! toplam boyun: {boy} cm 🍆")
         return
 
-    # cooldown yok, diğer seçenekler:
     if option == "kaccm":
         boy = data.get(user_id, 0)
         await ctx.send(f"{ctx.author.mention}, sikiniz tam olarak {boy} cm!")
@@ -217,26 +481,61 @@ async def sik(ctx, option: str = None):
 
         sirali = sorted(data.items(), key=lambda x: x[1], reverse=True)
 
-        mesaj = "> **sarvarın en buyuk siklileri:**\n"
+        mesaj = ""
         for i, (uid, boy) in enumerate(sirali, start=1):
-            try:
-                user = await ctx.guild.fetch_member(int(uid))
-                isim = user.display_name if user else f"> User ID: {uid}"
-            except:
-                isim = f"User ID: {uid}"
+            uid = int(uid)
+            user = ctx.guild.get_member(uid)
+            if not user:
+                try:
+                    user = await ctx.guild.fetch_member(uid)
+                except:
+                    user = None
 
-            mesaj += f"> {i}. {isim} — {boy} cm\n"
+            isim = user.display_name if user else f"User ID: {uid}"
+            mesaj += f"{i}. **{isim} – {boy} cm**\n"
 
             if len(mesaj) > 1900:
                 mesaj += "\n...ve devamı var."
                 break
 
-        await ctx.send(mesaj)
+        embed = discord.Embed(
+            title="> **sarvarun en büyük siklileri:** 🍆",
+            description=mesaj,
+            color=discord.Color.dark_gold()
+        )
+
+        await ctx.send(embed=embed)
         return
 
-    if option == "superbuyult" or option == "superkaldir" or option == "superkaldır":
+    if option == "daily":
         now = time.time()
-        cooldown_time = 3600  # 1 saat = 3600 saniye
+        cooldown_time = 86400
+        last_time = cooldowns.get(user_id + "_daily", 0)
+
+        if now - last_time < cooldown_time:
+            kalan = int(cooldown_time - (now - last_time))
+            saat = kalan // 3600
+            dakika = (kalan % 3600) // 60
+            await ctx.send(f"{ctx.author.mention}, daily için {saat} saat {dakika} dakika beklicen gral.")
+            return
+
+        cooldowns[user_id + "_daily"] = now
+        with open("cooldowns.json", "w") as f:
+            json.dump(cooldowns, f, indent=4)
+
+        buyume = random.randint(20, 40)
+        boy = data.get(user_id, 0) + buyume
+        data[user_id] = boy
+
+        with open("dicks.json", "w") as f:
+            json.dump(data, f, indent=4)
+
+        await ctx.send(f"{ctx.author.mention}, sikin artık daha buyuk! today **+{buyume} cm** buyudu hll. toplam: **{boy} cm** 🍆")
+        return
+
+    if option in ["superbuyult", "superkaldir", "superkaldır"]:
+        now = time.time()
+        cooldown_time = 3600
         last_time = cooldowns.get(user_id + "_super", 0)
 
         if now - last_time < cooldown_time:
@@ -246,47 +545,50 @@ async def sik(ctx, option: str = None):
             await ctx.send(f"{ctx.author.mention}, süper büyütme için {dakika} dakika {saniye} saniye daha bekle gral.")
             return
 
-        # Cooldown'u kaydet
         cooldowns[user_id + "_super"] = now
         with open("cooldowns.json", "w") as f:
             json.dump(cooldowns, f, indent=4)
 
         secilen_bk = random.randint(20, 40)
-        sans = random.random()  # 0 ile 1 arasında sayı
+        sans = random.random()
 
         boy = data.get(user_id, 0)
-
         if sans <= 0.5:
-            # Büyütme
             boy += secilen_bk
             sonuc = f"sanslı orospu cocu! 🍆\nsikin {secilen_bk} cm uzadı. toplam: {boy} cm!"
         else:
-            # Küçültme (negatif olmaması için kontrol)
             boy -= secilen_bk
-            if boy < 0:
-                boy = 0
+            boy = max(boy, 0)
             sonuc = f"allaaan malı haha! 😆\nsikin {secilen_bk} cm kısaldı. yeni boy: {boy} cm."
 
         data[user_id] = boy
-
         with open("dicks.json", "w") as f:
             json.dump(data, f, indent=4)
 
         await ctx.send(f"{ctx.author.mention}, {sonuc}")
         return
 
-    # Bilinmeyen seçenek
-    await ctx.send(
-        "allahsız kürt seçenekler bunlar sadece: buyult / superbuyult / kaccm / top"
-    )
+    # Geçersiz option kontrolü
+    if option not in ["buyult", "superbuyult", "daily", "lottery", "kaccm", "top", "give"]:
+        await ctx.send("seçenekler bunlar sadece: buyult / superbuyult / daily / lottery / kaccm / top / give")
+        return
+
 
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, CommandOnCooldown):
         await ctx.send(
-            f"{ctx.author.mention}, bu komutu tekrar kullanmak çin {round(error.retry_after)/60} saat beklemelisin."
+            f"{ctx.author.mention}, bu komutu tekrar kullanmak için {error.retry_after:.1f} saniye beklemelisin."
         )
     else:
-        raise error  # Diğer hataları normal şekilde göster
+        print(f"Bir hata oluştu: {error}")
 
-bot.run("MTM5NDYzNTc0NTMwMTM2NDgzNg.G2YQaP.5a0M4AukYXr-H07Nq1QpC9oZSyO9JyJ8dm9rF0")
+if not os.path.exists("lottery.json"):
+    with open("lottery.json", "w") as f: json.dump({}, f)
+if not os.path.exists("dicks.json"):
+    with open("dicks.json", "w") as f: json.dump({}, f)
+if not os.path.exists("cooldowns.json"):
+    with open("cooldowns.json", "w") as f: json.dump({}, f)
+
+# Lütfen bot token'ını buraya kendin ekle
+bot.run("")
