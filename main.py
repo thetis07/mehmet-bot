@@ -26,9 +26,9 @@ def load_json(filename):
                 return {}
     return {}
 
-def save_json(filename, data):
+def save_json(filename, dicks):
     with open(filename, "w") as f:
-        json.dump(data, f, indent=4)
+        json.dump(dicks, f, indent=4)
 
 if os.path.exists("starboard.json"):
     with open("starboard.json", "r") as f:
@@ -251,15 +251,6 @@ async def sik(ctx, *args):
 
     user_id = str(ctx.author.id)
 
-    if os.path.exists("dicks.json"):
-        with open("dicks.json", "r") as f:
-            try:
-                data = json.load(f)
-            except json.JSONDecodeError:
-                data = {}
-    else:
-        data = {}
-
     if not args:
         await ctx.send("https://tenor.com/view/rock-one-eyebrow-raised-rock-staring-the-rock-gif-22113367")
         return
@@ -292,16 +283,16 @@ async def sik(ctx, *args):
         hedef_id = str(hedef_kisi.id)
         veren_id = user_id
 
-        veren_cm = data.get(veren_id, 0)
+        veren_cm = dicks.get(veren_id, 0)
         if veren_cm < miktar:
             await ctx.send(f"{ctx.author.mention}, o kadar sikin yok mk! sende sadece {veren_cm} cm var.")
             return
 
-        data[veren_id] = veren_cm - miktar
-        data[hedef_id] = data.get(hedef_id, 0) + miktar
+        dicks[veren_id] = veren_cm - miktar
+        dicks[hedef_id] = dicks.get(hedef_id, 0) + miktar
 
         with open("dicks.json", "w") as f:
-            json.dump(data, f, indent=4)
+            json.dump(dicks, f, indent=4)
 
         await ctx.send(f"{ctx.author.mention}, {hedef_kisi.mention} kişisine **{miktar} cm** verdi. hll lan sana mal kopek")
         return
@@ -460,26 +451,26 @@ async def sik(ctx, *args):
             json.dump(cooldowns, f, indent=4)
 
         secilen_buyume = random.randint(1, 12)
-        boy = data.get(user_id, 0) + secilen_buyume
-        data[user_id] = boy
+        boy = dicks.get(user_id, 0) + secilen_buyume
+        dicks[user_id] = boy
 
         with open("dicks.json", "w") as f:
-            json.dump(data, f, indent=4)
+            json.dump(dicks, f, indent=4)
 
         await ctx.send(f"{ctx.author.mention}, sikinin boyu {secilen_buyume} cm arttı! toplam boyun: {boy} cm 🍆")
         return
 
     if option == "kaccm":
-        boy = data.get(user_id, 0)
+        boy = dicks.get(user_id, 0)
         await ctx.send(f"{ctx.author.mention}, sikiniz tam olarak {boy} cm!")
         return
 
     if option == "top":
-        if not data:
+        if not dicks:
             await ctx.send("kimsenin siki yok yani siksiz world")
             return
 
-        sirali = sorted(data.items(), key=lambda x: x[1], reverse=True)
+        sirali = sorted(dicks.items(), key=lambda x: x[1], reverse=True)
 
         mesaj = ""
         for i, (uid, boy) in enumerate(sirali, start=1):
@@ -524,11 +515,11 @@ async def sik(ctx, *args):
             json.dump(cooldowns, f, indent=4)
 
         buyume = random.randint(20, 40)
-        boy = data.get(user_id, 0) + buyume
-        data[user_id] = boy
+        boy = dicks.get(user_id, 0) + buyume
+        dicks[user_id] = boy
 
         with open("dicks.json", "w") as f:
-            json.dump(data, f, indent=4)
+            json.dump(dicks, f, indent=4)
 
         await ctx.send(f"{ctx.author.mention}, sikin artık daha buyuk! today **+{buyume} cm** buyudu hll. toplam: **{boy} cm** 🍆")
         return
@@ -552,7 +543,7 @@ async def sik(ctx, *args):
         secilen_bk = random.randint(20, 40)
         sans = random.random()
 
-        boy = data.get(user_id, 0)
+        boy = dicks.get(user_id, 0)
         if sans <= 0.5:
             boy += secilen_bk
             sonuc = f"sanslı orospu cocu! 🍆\nsikin {secilen_bk} cm uzadı. toplam: {boy} cm!"
@@ -561,9 +552,9 @@ async def sik(ctx, *args):
             boy = max(boy, 0)
             sonuc = f"allaaan malı haha! 😆\nsikin {secilen_bk} cm kısaldı. yeni boy: {boy} cm."
 
-        data[user_id] = boy
+        dicks[user_id] = boy
         with open("dicks.json", "w") as f:
-            json.dump(data, f, indent=4)
+            json.dump(dicks, f, indent=4)
 
         await ctx.send(f"{ctx.author.mention}, {sonuc}")
         return
