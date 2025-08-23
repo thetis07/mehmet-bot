@@ -39,12 +39,19 @@ else:
 cooldowns = load_json("cooldowns.json")
 dicks = load_json("dicks.json")
 lottery_data = load_json("lottery.json")
-
+active_fights = set()
 
 @bot.event
 async def on_ready():
     print(f"Bot {bot.user} olarak giriş yaptı.")
     print("-----")
+
+BLOCKED_USERS = {"1111276725473656852",
+                 "1057696323391987782"}
+
+@bot.check
+async def globally_block_users(ctx):
+    return str(ctx.author.id) not in BLOCKED_USERS
 
 @bot.event
 async def on_message(message):
@@ -157,6 +164,25 @@ async def purge(ctx, miktar: int):
 async def say(ctx, *, contentx):
     await ctx.message.delete()
     await ctx.send(contentx)
+
+@bot.command(aliases=["meth"])
+async def math(ctx, ilk, islem, ikinci):
+    ilk = float(ilk)
+    ikinci = float(ikinci)
+
+    toplama = ilk + ikinci
+    cikartma = ilk-ikinci    
+    carpma = ilk*ikinci
+    bolme = ilk/ikinci
+
+    if islem == "+":
+        await ctx.send(f"sonuc = {toplama}")
+    elif islem == "-":
+        await ctx.send(f"sonuc = {cikartma}")
+    elif islem == "*":
+        await ctx.send(f"sonuc = {carpma}")
+    elif islem == "/":
+        await ctx.send(f"sonuc = {bolme}")
 
 @bot.command()
 async def gugul(ctx, *, aratilcak_sey):
@@ -319,6 +345,11 @@ async def sik(ctx, *args):
             await ctx.send("kendi sikinle savaşamazsın koçum")
             return
 
+        # 🔒 aynı anda iki dövüşe girmeyi engelle
+        if user_id in active_fights or hedef_id in active_fights:
+            await ctx.send("Sen veya rakibin zaten başka bir dövüşte. Önce o bitsin.")
+            return
+
         user_cm = dicks.get(user_id, 0)
         hedef_cm = dicks.get(hedef_id, 0)
 
@@ -349,32 +380,95 @@ async def sik(ctx, *args):
                 await interaction.response.edit_message(content=f"{hedef.mention} dövüşü reddetti. korkak", view=None)
                 self.stop()
 
-        view = FightButtons()
-        await ctx.send(f"🥊 {ctx.author.mention}, {hedef.mention} kişisine **{miktar} cm** bahisle dövüş teklif etti.",
-                       view=view)
-        await view.wait()
+        # 🔒 Dövüşe ekle
+        active_fights.add(user_id)
+        active_fights.add(hedef_id)
 
-        if view.response != "kabul":
-            return  # Dövüş iptal edildi
+        try:
+            view = FightButtons()
+            await ctx.send(f"🥊 {ctx.author.mention}, {hedef.mention} kişisine **{miktar} cm** bahisle dövüş teklif etti.", view=view)
+            await view.wait()
 
-        # %50-%50 adil savaş
-        kazanan_id = random.choice([user_id, hedef_id])
-        kaybeden_id = hedef_id if kazanan_id == user_id else user_id
+            if view.response != "kabul":
+                return  # Dövüş iptal edildi
 
-        kazanan_user = ctx.author if kazanan_id == user_id else hedef
-        kaybeden_user = hedef if kazanan_id == user_id else ctx.author
+            # %50-%50 adil savaş
+            kazanan_id = random.choice([user_id, hedef_id])
+            kaybeden_id = hedef_id if kazanan_id == user_id else user_id
 
-        dicks[kazanan_id] = dicks.get(kazanan_id, 0) + miktar
-        dicks[kaybeden_id] = max(0, dicks.get(kaybeden_id, 0) - miktar)
+            kazanan_user = ctx.author if kazanan_id == user_id else hedef
+            kaybeden_user = hedef if kazanan_id == user_id else ctx.author
 
-        save_json("dicks.json", dicks)
+            dicks[kazanan_id] = dicks.get(kazanan_id, 0) + miktar
+            dicks[kaybeden_id] = max(0, dicks.get(kaybeden_id, 0) - miktar)
 
-        await ctx.send(f"💥 **SİK DÖVÜŞÜ!** 💥\n"
-                       f"{ctx.author.mention} vs {hedef.mention} – bahis: **{miktar} cm**\n\n"
-                       f"🏆 **Kazanan:** {kazanan_user.mention} (+{miktar} cm)\n"
-                       f"💀 **Kaybeden:** {kaybeden_user.mention} (-{miktar} cm)")
+            save_json("dicks.json", dicks)
+
+            await ctx.send(f"💥 **SİK DÖVÜŞÜ!** 💥\n"
+                        f"{ctx.author.mention} vs {hedef.mention} – bahis: **{miktar} cm**\n\n"
+                        f"🏆 **Kazanan:** {kazanan_user.mention} (+{miktar} cm)\n"
+                        f"💀 **Kaybeden:** {kaybeden_user.mention} (-{miktar} cm)")
+
+        finally:
+            # 🔓 Dövüş bitince temizle
+            active_fights.discard(user_id)
+            active_fights.discard(hedef_id)
+
         return
 
+    if not args:
+        await ctx.send("https://tenor.com/view/rock-one-eyebrow-raised-rock-staring-the-rock-gif-22113367")
+        return
+
+    option = args[0].lower()
+
+    # LOTO zaman kontrolü
+    if "end_time" in lottery_data and time.time() > lottery_data["end_time"]:
+        print("[DEBUG] Loto süresi doldu, çekiliş yapılıyor.")
+        await draw_lottery(ctx)
+        # Bu return önemli, yoksa loto bittikten sonra komut devam etmeye çalışır
+        if option == "lottery": return
+
+    if option == "cf":
+        if amount is None:
+            await ctx.send("sunu dogru kullanmayı ogrenin amk. `!sik cf <miktar>`")
+            return
+        try:
+            miktar = int(amount)
+            if miktar <= 0:
+                await ctx.send("yarraaaamın bası dupelarsın pozitif gircen. `!sik cf <miktar>`")
+                return
+        except ValueError:
+            await ctx.send("sayı gir amk ne yapmaya calısıyon. `!sik cf <miktar>`")
+            return
+
+        bakiye = dicks.get(user_id, 0)
+        if bakiye < miktar:
+            await ctx.send(f"o kadar yok allan fakiri. minik sikinin boyu: **{bakiye} cm**")
+            return
+
+        # Bahsi yatır
+        dicks[user_id] = bakiye - miktar
+        save_json("dicks.json", dicks)
+
+        # İlk mesaj
+        msg = await ctx.send(f"🪙 donuyorrrr...\n> bahsin: **{miktar} cm**")
+
+        # Biraz bekletelim
+        await asyncio.sleep(2)
+
+        # %60 kayıp, %40 kazanç
+        if random.random() < 0.6:
+            sonuc_mesaj = f"💀 amk ezigi. **{miktar} cm** sikin gitti."
+        else:
+            kazanc = miktar * 2
+            dicks[user_id] += kazanc
+            save_json("dicks.json", dicks)
+            sonuc_mesaj = f"🎉 bugun sanslısın oc! **{kazanc} cm** kazandın!"
+
+        yeni_bakiye = dicks.get(user_id, 0)
+        await msg.edit(content=f"{sonuc_mesaj}\n> yeni sikin: **{yeni_bakiye} cm**")
+        return
 
     # LOTTERY
     if option in ["lottery", "lodıri"]:
@@ -564,6 +658,12 @@ async def sik(ctx, *args):
         await ctx.send("seçenekler bunlar sadece: buyult / superbuyult / daily / lottery / kaccm / top / give")
         return
 
+@bot.check
+async def dm_check(ctx):
+    if isinstance(ctx.channel, discord.DMChannel):
+        await ctx.send("AHHHH YARRAAAAAAAKKKKKKKKKKKK")
+        return False  # Komut çalıştırılmaz
+    return True  # Komut çalıştırılabilir
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -582,4 +682,4 @@ if not os.path.exists("cooldowns.json"):
     with open("cooldowns.json", "w") as f: json.dump({}, f)
 
 # Lütfen bot token'ını buraya kendin ekle
-bot.run("")
+bot.run("yarak yalama suporu")
