@@ -4,8 +4,8 @@ import time
 import os
 import sys
 import json
-import subprocess
 import asyncio
+import base64
 import discord.ui
 from discord.ext import commands
 from discord.ext.commands import CommandOnCooldown
@@ -14,7 +14,14 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True # Sunucu üyelerini çekebilmek için intents'i aktif ettim
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="?", intents=intents)
+
+yasaklilar = [
+        "@everyone",
+        "@here",
+        "@newler",
+        "/"
+        ]
 
 # Cooldown ve data için JSON dosyalarını yükleme/kaydetme fonksiyonları
 def load_json(filename):
@@ -159,12 +166,6 @@ async def reload(ctx):
 async def purge(ctx, miktar: int):
     await ctx.channel.purge(limit=miktar)
 
-# ... Diğer komutların hepsi aynı kalabilir ...
-@bot.command(aliases=["sole"])
-async def say(ctx, *, contentx):
-    await ctx.message.delete()
-    await ctx.send(contentx)
-
 @bot.command(aliases=["meth"])
 async def math(ctx, ilk, islem, ikinci):
     ilk = float(ilk)
@@ -202,19 +203,41 @@ async def yazitura(ctx, cevap: str):
 
 @bot.command()
 async def secim(ctx, option1, option2):
-    await ctx.send(f"Çıkan seçim: {random.choice([option1, option2])}")
+    is_yasakli = False
+    for kelime in yasaklilar:
+        if kelime in option1 or kelime in option2:
+            is_yasakli = True
+            break
 
-@bot.command(aliases=["beyz","base"])
-async def base64(ctx, option, *, mesaj):
-    if option in ["encode", "e"]:
-        result = subprocess.getoutput(f"echo '{mesaj}' | base64")
-        await ctx.send(f"`{mesaj}` --> `{result}`")
-    elif option in ["decode", "d"]:
-        result = subprocess.getoutput(f"echo '{mesaj}' | base64 -d")
-        await ctx.send(f"`{mesaj}` --> `{result}`")
+    if is_yasakli:
+        await ctx.send("yarak yala")
     else:
-        await ctx.send("Düzgün seçenek gir yarraaaam (`encode` veya `decode`)")
-# ...
+        secilen = random.choice([option1, option2])
+        await ctx.send(f"bu seciöm cıktıa : {secilen}")
+
+@bot.command(aliases=["sole"])
+async def say(ctx,soylenecek_sey):
+    is_yasakli = False
+    for i in yasaklilar:
+        if i in soylenecek_sey:
+            is_yasakli = True
+            break
+    
+    if is_yasakli == True:
+        await ctx.send("yarraaaaaaaamı yala laaa")
+    elif is_yasakli == False:
+        await ctx.message.delete()
+        await ctx.send(soylenecek_sey)
+
+@bot.command(aliases=["base64","beyz"])
+async def base(ctx,option,*,mesaj):
+    if option in ["encode","e"]:
+        encoded = base64.b64encode(mesaj.encode()).decode()
+        await ctx.send(f"{mesaj} --> {encoded}")
+    elif option in ["decode","d"]:
+        decoded = base64.b64decode(mesaj).decode()
+        await ctx.send(f"{mesaj} --> {decoded}")
+        
 
 @bot.command()
 async def meme(ctx):
@@ -429,47 +452,6 @@ async def sik(ctx, *args):
         # Bu return önemli, yoksa loto bittikten sonra komut devam etmeye çalışır
         if option == "lottery": return
 
-    if option == "cf":
-        if amount is None:
-            await ctx.send("sunu dogru kullanmayı ogrenin amk. `!sik cf <miktar>`")
-            return
-        try:
-            miktar = int(amount)
-            if miktar <= 0:
-                await ctx.send("yarraaaamın bası dupelarsın pozitif gircen. `!sik cf <miktar>`")
-                return
-        except ValueError:
-            await ctx.send("sayı gir amk ne yapmaya calısıyon. `!sik cf <miktar>`")
-            return
-
-        bakiye = dicks.get(user_id, 0)
-        if bakiye < miktar:
-            await ctx.send(f"o kadar yok allan fakiri. minik sikinin boyu: **{bakiye} cm**")
-            return
-
-        # Bahsi yatır
-        dicks[user_id] = bakiye - miktar
-        save_json("dicks.json", dicks)
-
-        # İlk mesaj
-        msg = await ctx.send(f"🪙 donuyorrrr...\n> bahsin: **{miktar} cm**")
-
-        # Biraz bekletelim
-        await asyncio.sleep(2)
-
-        # %60 kayıp, %40 kazanç
-        if random.random() < 0.6:
-            sonuc_mesaj = f"💀 amk ezigi. **{miktar} cm** sikin gitti."
-        else:
-            kazanc = miktar * 2
-            dicks[user_id] += kazanc
-            save_json("dicks.json", dicks)
-            sonuc_mesaj = f"🎉 bugun sanslısın oc! **{kazanc} cm** kazandın!"
-
-        yeni_bakiye = dicks.get(user_id, 0)
-        await msg.edit(content=f"{sonuc_mesaj}\n> yeni sikin: **{yeni_bakiye} cm**")
-        return
-
     # LOTTERY
     if option in ["lottery", "lodıri"]:
         participants = lottery_data.get("participants", {})
@@ -682,4 +664,4 @@ if not os.path.exists("cooldowns.json"):
     with open("cooldowns.json", "w") as f: json.dump({}, f)
 
 # Lütfen bot token'ını buraya kendin ekle
-bot.run("yarak yalama suporu")
+bot.run("yaraghımı yala")
