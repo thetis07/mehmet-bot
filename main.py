@@ -14,7 +14,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True # Sunucu üyelerini çekebilmek için intents'i aktif ettim
 
-bot = commands.Bot(command_prefix="?", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 yasaklilar = [
         "@everyone",
@@ -312,6 +312,15 @@ async def sik(ctx, *args):
         print("[DEBUG] Loto süresi doldu, çekiliş yapılıyor.")
         await draw_lottery(ctx)
         return
+
+    if option == "help":
+        embed = discord.Embed(
+                title = "sik kralı nasıl olunur 2025",
+                description = "**buyult** - `!sik buyult` kullan ve 1 12 arası cm kazan\n**kaccm** - `!sik kaccm` kullan ve sikinin kac cm oldugunu gor\n**top** - `!sik top` kullan ve sunucunun siklerini gor\n**superbuyult** - `!sik superbuyult` kullan ve %50 sansla ya 20 - 40 arası cm kaybet ya da kazan\n**daily** - `!sik daily` kullan ve her gun 20 - 40 arası cm kazan\n**give** - `!sik give <miktar>` <kullanıcı> kullan ve kullanıcıya miktar kadar cm ver\n**fight** - `!sik fight <miktar> <kullanıcı>` kullan ve kullanıcıyla %50 oranla miktar bahsinde fightla\n**lottery** - `!sik lottery` yaz gor amk o kadar yazmıcam acıklamak icin",
+                color = discord.Color.pink()
+                )
+        
+        await ctx.send(embed=embed)
 
     # GIVE KOMUTU
     if option == "give":
@@ -636,8 +645,8 @@ async def sik(ctx, *args):
         return
 
     # Geçersiz option kontrolü
-    if option not in ["buyult", "superbuyult", "daily", "lottery", "kaccm", "top", "give"]:
-        await ctx.send("seçenekler bunlar sadece: buyult / superbuyult / daily / lottery / kaccm / top / give")
+    if option not in ["buyult", "superbuyult", "daily", "lottery", "kaccm", "top", "give", "help"]:
+        await ctx.send("!sik help yaz gommandları gor amına")
         return
 
 @bot.check
@@ -664,4 +673,4 @@ if not os.path.exists("cooldowns.json"):
     with open("cooldowns.json", "w") as f: json.dump({}, f)
 
 # Lütfen bot token'ını buraya kendin ekle
-bot.run("yaraghımı yala")
+bot.run("yarag yala")
