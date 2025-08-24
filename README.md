@@ -10,7 +10,7 @@
 
 # features
 - **!sik** - a command that you can grow your dick and fight with the other users
-- **!gugul and !ddg** - these command are used to search something on the web (mehmet prefers the ddg)
+- **!gugul and !ddg** - these command are used for search something on the web (mehmet prefers the ddg)
 - **!base** - a command to encode and decode something
 - **!meme** - this command is very useful, u cant know this command if u dont use it
 - and there is a lot of commands
