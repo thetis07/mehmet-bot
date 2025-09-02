@@ -5,6 +5,7 @@ import os
 import sys
 import json
 import asyncio
+import requests
 import base64
 import discord.ui
 from discord.ext import commands
@@ -22,6 +23,8 @@ yasaklilar = [
         "@newler",
         "/"
         ]
+
+OWM_KEY = "yarramı yalayın atlas ya da queryra ajajajajaj"
 
 # Cooldown ve data için JSON dosyalarını yükleme/kaydetme fonksiyonları
 def load_json(filename):
@@ -160,6 +163,33 @@ async def reload(ctx):
     await ctx.send("🔁 Yeniden başlatılıyor...")
     os.execv(sys.executable, ['python'] + sys.argv)
 
+@bot.command(aliases=["hava"])
+async def weather(ctx, city):
+    url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={OWM_KEY}&units=metric"
+    
+    response = requests.get(url)
+    data = response.json()
+    
+    try:
+        temp = data['main']['temp']
+        feels = data['main']['feels_like'] 
+        country = data['sys']['country']
+        desc = data['weather'][0]['description']  
+        wind = data['wind']['speed']
+
+        embed = discord.Embed(
+                title=f"{country}, {city}",
+                description=f"""sıjaklık : {temp}
+                hissedilen : {feels}
+                ruzgar : {wind}
+                uzmanlardan acıklama : {desc}""",
+                color=discord.Color.pink()
+                )
+    
+        await ctx.send(embed=embed)
+
+    except KeyError:
+        await ctx.send("OYLE BİYER YOK AYNI KURDİSTAN GİBİ")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -216,7 +246,7 @@ async def secim(ctx, option1, option2):
         await ctx.send(f"bu seciöm cıktıa : {secilen}")
 
 @bot.command(aliases=["sole"])
-async def say(ctx,soylenecek_sey):
+async def say(ctx,*,soylenecek_sey):
     is_yasakli = False
     for i in yasaklilar:
         if i in soylenecek_sey:
@@ -673,4 +703,4 @@ if not os.path.exists("cooldowns.json"):
     with open("cooldowns.json", "w") as f: json.dump({}, f)
 
 # Lütfen bot token'ını buraya kendin ekle
-bot.run("yarag yala")
+bot.run("owm_keye bak yukarda akajjajajaj")
