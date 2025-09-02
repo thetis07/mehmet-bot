@@ -7,6 +7,7 @@ import json
 import asyncio
 import requests
 import base64
+import re
 import discord.ui
 from discord.ext import commands
 from discord.ext.commands import CommandOnCooldown
@@ -17,14 +18,8 @@ intents.members = True # Sunucu üyelerini çekebilmek için intents'i aktif ett
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-yasaklilar = [
-        "@everyone",
-        "@here",
-        "@newler",
-        "/"
-        ]
-
-OWM_KEY = "yarramı yalayın atlas ya da queryra ajajajajaj"
+DEEPL_KEY = "yarah yala queryra"
+OWM_KEY = "mal dog ez queryra"
 
 # Cooldown ve data için JSON dosyalarını yükleme/kaydetme fonksiyonları
 def load_json(filename):
@@ -179,10 +174,7 @@ async def weather(ctx, city):
 
         embed = discord.Embed(
                 title=f"{country}, {city}",
-                description=f"""sıjaklık : {temp}
-                hissedilen : {feels}
-                ruzgar : {wind}
-                uzmanlardan acıklama : {desc}""",
+                description=f"sıjaklık : {temp}\nhissedilen : {feels}\nruzgar : {wind}\nuzmanlardan acıklama : {desc}",
                 color=discord.Color.pink()
                 )
     
@@ -190,6 +182,26 @@ async def weather(ctx, city):
 
     except KeyError:
         await ctx.send("OYLE BİYER YOK AYNI KURDİSTAN GİBİ")
+
+@bot.command(aliases=["cevir", "tr"])
+async def translate(ctx, language, *, text_t):
+    url = "https://api-free.deepl.com/v2/translate"
+
+    try:
+        params = {
+        "auth_key": DEEPL_KEY,
+        "text": text_t,
+        "target_lang": language.capitalize()
+        }
+
+        response = requests.post(url, data=params)
+        data = response.json()
+        sonuc = data['translations'][0]['text']
+
+        await ctx.send(f"cevirdim laa : **{sonuc}**")
+
+    except KeyError:
+        await ctx.send("allahın malı dogru kullan sunu bakk bole `!tr <cevirilcek dil> <cevirilcek metin>`")
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -233,31 +245,13 @@ async def yazitura(ctx, cevap: str):
 
 @bot.command()
 async def secim(ctx, option1, option2):
-    is_yasakli = False
-    for kelime in yasaklilar:
-        if kelime in option1 or kelime in option2:
-            is_yasakli = True
-            break
-
-    if is_yasakli:
-        await ctx.send("yarak yala")
-    else:
-        secilen = random.choice([option1, option2])
-        await ctx.send(f"bu seciöm cıktıa : {secilen}")
+    secilen = random.choice([option1, option2])
+    await ctx.send(f"bu seciöm cıktıa : {secilen}")
 
 @bot.command(aliases=["sole"])
 async def say(ctx,*,soylenecek_sey):
-    is_yasakli = False
-    for i in yasaklilar:
-        if i in soylenecek_sey:
-            is_yasakli = True
-            break
-    
-    if is_yasakli == True:
-        await ctx.send("yarraaaaaaaamı yala laaa")
-    elif is_yasakli == False:
-        await ctx.message.delete()
-        await ctx.send(soylenecek_sey)
+    await ctx.message.delete()
+    await ctx.send(soylenecek_sey)
 
 @bot.command(aliases=["base64","beyz"])
 async def base(ctx,option,*,mesaj):
@@ -703,4 +697,4 @@ if not os.path.exists("cooldowns.json"):
     with open("cooldowns.json", "w") as f: json.dump({}, f)
 
 # Lütfen bot token'ını buraya kendin ekle
-bot.run("owm_keye bak yukarda akajjajajaj")
+bot.run("acınası queryra")
