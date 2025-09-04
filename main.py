@@ -9,6 +9,7 @@ import requests
 import base64
 import re
 import discord.ui
+from datetime import datetime, timedelta
 from discord.ext import commands
 from discord.ext.commands import CommandOnCooldown
 
@@ -18,8 +19,17 @@ intents.members = True # Sunucu üyelerini çekebilmek için intents'i aktif ett
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-DEEPL_KEY = "yarah yala queryra"
-OWM_KEY = "mal dog ez queryra"
+DEEPL_KEY = "du nat ridim it saar"
+OWM_KEY = "plis saar"
+
+editler = []
+
+try:
+    with open("editler.txt", "r") as f:
+        for line in f:
+            editler.append(line.strip())
+except FileNotFoundError:
+    pass  # dosya yoksa boş geç
 
 # Cooldown ve data için JSON dosyalarını yükleme/kaydetme fonksiyonları
 def load_json(filename):
@@ -91,6 +101,14 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
+    if message.channel.id == 1412551142566526976:
+        for attachment in message.attachments:
+            if attachment.filename.endswith((".mp4",".mov",".webm")):
+                editler.append(attachment.url)
+
+                with open("editler.txt", "a") as f:
+                    f.write(attachment.url + "\r\n")
+
 STAR_THRESHOLD = 3
 STARBOARD_CHANNEL_ID = 1402040749750489198
 starboard_messages = {}
@@ -158,6 +176,47 @@ async def reload(ctx):
     await ctx.send("🔁 Yeniden başlatılıyor...")
     os.execv(sys.executable, ['python'] + sys.argv)
 
+@bot.command(aliases=["nekadarkaldi"])
+async def nekadar(ctx, option):
+    simdi = datetime.now()
+    if option == "okul":
+        hedef = datetime(2025, 9, 8, 8, 0, 0)
+        
+        fark = hedef - simdi
+
+        # timedelta’dan saat/dakika/saniye hesaplamak
+        gun = fark.days
+        saat = fark.seconds // 3600
+        dakika = (fark.seconds % 3600) // 60
+        saniye = fark.seconds % 60
+
+        await ctx.send(f"lanet olasi okulun acilmasina **{gun}** gun, **{saat}** saat, **{dakika}** dakika, **{saniye}** saniye kaldi AAAAAAAAA")
+
+    elif option == "yks":
+        hedef = datetime(2026, 6, 21, 10, 15, 0)
+        fark = hedef - simdi
+        
+        ay = (fark.days) // 31
+        gun = fark.days // ay
+        saat = fark.seconds // 3600
+        dakika = (fark.seconds % 3600) // 60
+
+        await ctx.send(f"YEKASE sınavına **{ay}** ay, **{gun}** gun, **{saat}** saat, **{dakika}** dakika kaldı ama bizeneamk haha")
+
+    elif option in ["yilbasi", "yılbası"]:
+        hedef = datetime(2026, 1, 1, 0, 0, 0)
+        fark = hedef - simdi
+
+        ay = fark.days // 31
+        gun = fark.days // ay 
+        saat = fark.seconds // 3600 
+        dakika = (fark.seconds % 3600) // 60 
+
+        await ctx.send(f"YILBASINA **{ay}** ay, **{gun}** gun, **{saat}** saat, **{dakika}** dakika kaldı HEPİ KRİSMIS!!!1!!1")
+
+    elif option not in ["okul", "yks", "yılbası", "yilbasi"] or option == None:
+        await ctx.send("aveylıbıl paramedırs : okul / yks / yılbası")
+
 @bot.command(aliases=["hava"])
 async def weather(ctx, city):
     url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={OWM_KEY}&units=metric"
@@ -204,9 +263,40 @@ async def translate(ctx, language, *, text_t):
         await ctx.send("allahın malı dogru kullan sunu bakk bole `!tr <cevirilcek dil> <cevirilcek metin>`")
 
 @bot.command()
+async def dolar(ctx):
+    url = "https://open.er-api.com/v6/latest/USD"
+    response = requests.get(url)
+    data = response.json()
+
+    usd_to_try = data["rates"]["TRY"]
+    tam = str(usd_to_try)[:5].replace(".",",")
+
+    await ctx.send(f"bugun dolar tamı tamına **{tam}** lira hergun daha cok yarra yiyoz")
+
+@bot.command()
 @commands.has_permissions(administrator=True)
 async def purge(ctx, miktar: int):
     await ctx.channel.purge(limit=miktar)
+
+@bot.command()
+async def edit(ctx, option=None):
+    if option == None:
+        if not editler:
+            await ctx.send("video yok amina")
+            return
+
+        secim = random.choice(editler)
+        await ctx.send(secim)
+
+
+    if option == "sayi":
+        satir_sayisi = 0 
+
+        with open("editler.txt", "r") as f:
+            for _ in f:
+                satir_sayisi += 1 
+
+        await ctx.send(f"vay amk **{satir_sayisi}** editimiz var elde")
 
 @bot.command(aliases=["meth"])
 async def math(ctx, ilk, islem, ikinci):
@@ -697,4 +787,4 @@ if not os.path.exists("cooldowns.json"):
     with open("cooldowns.json", "w") as f: json.dump({}, f)
 
 # Lütfen bot token'ını buraya kendin ekle
-bot.run("acınası queryra")
+bot.run("ajajajajajajjaja")
