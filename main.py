@@ -9,6 +9,7 @@ import requests
 import base64
 import re
 import discord.ui
+from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from discord.ext import commands
 from discord.ext.commands import CommandOnCooldown
@@ -17,10 +18,12 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True # Sunucu üyelerini çekebilmek için intents'i aktif ettim
 
+load_dotenv()
+
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-DEEPL_KEY = "du nat ridim it saar"
-OWM_KEY = "plis saar"
+DEEPL_KEY = os.getenv("DEEPL_KEY")
+OWM_KEY = os.getenv("OWM_KEY")
 
 editler = []
 
@@ -787,4 +790,4 @@ if not os.path.exists("cooldowns.json"):
     with open("cooldowns.json", "w") as f: json.dump({}, f)
 
 # Lütfen bot token'ını buraya kendin ekle
-bot.run("ajajajajajajjaja")
+bot.run(os.getenv("TOKEN"))
